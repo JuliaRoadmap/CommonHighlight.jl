@@ -1,0 +1,2 @@
+module CommonHighlight
+end
