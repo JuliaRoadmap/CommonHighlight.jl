@@ -1,5 +1,5 @@
 function highlight(::Union{Val{:shell}, Val{:sh}}, content::AbstractString, setting::CommonHighlightSetting)
-	lines=split(content, '\n'; keepempty=true)
+	lines=split(content, '\n'; keepempty=setting.keepempty)
 	vec=Vector{Tuple}()
 	maystart=""
 	sz=0
@@ -10,22 +10,22 @@ function highlight(::Union{Val{:shell}, Val{:sh}}, content::AbstractString, sett
 		if maystart!="" && startswith(line, maystart)
 			len=length(line)
 			if sz!=len
-				push!(vec, ("repl-code" => maystart, col(line[sz+1:len], "plain"; br=false)))
+				push!(vec, ("repl-code" => maystart, "plain" => line[sz+1:len]))
 			else
 				push!(vec, ("repl-code" => maystart,))
 			end
 		elseif startswith(line, "\$ ")
 			maystart="\$"
 			sz=1
-			push!(vec, ("repl-code" => "\$", col(line[2:end], "plain"; br=false)))
+			push!(vec, ("repl-code" => "\$", "plain" => line[2:end]))
 		else
 			find=findfirst(r"^[a-zA-Z0-9_-]*(>|#|~) ", line)
 			if find===nothing
-				push!(vec, (col(line, "plain"; br=false),))
+				push!(vec, "plain" => line)
 			else
 				sz=find.stop-1
 				maystart=line[1:sz]
-				push!(vec, ("repl-code" => maystart, col(line[find.stop:end], "plain"; br=false)))
+				push!(vec, ("repl-code" => maystart, plain => line[find.stop:end]))
 			end
 		end
 	end
