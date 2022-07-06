@@ -1,7 +1,7 @@
 module CommonHighlight
 export HighlightLines, highlight_lines
 
-struct HighlightLines{T} where T
+struct HighlightLines{T}
 	lines::Vector{T}
 end
 Base.@kwdef struct CommonHighlightSetting

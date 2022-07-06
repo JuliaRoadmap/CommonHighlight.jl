@@ -45,7 +45,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 		if emp
 			if startswith(line, "julia>")
 				hasrepl=true
-				push!(thisline, "repl-code" => "julia>")
+				push!(thisline, "shell" => "julia>")
 				pre=i=7
 			elseif startswith(line, "help?>")
 				push!(thisline, "repl-help" => "help?>")
@@ -209,7 +209,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 				j=i+1; ch=line[j]
 				if ch=='('
 					dealf()
-					push!(thisline, "insert" => "\$(")
+					push!(thisline, "interpolation" => "\$(")
 					push!(stack, 0x0)
 					push!(b_stack, zero(UInt16))
 					pre=i=i+2
@@ -220,10 +220,10 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 						j=nextind(line, j)
 					end
 					if j>sz
-						push!(thisline, "insert" => line[i:end])
+						push!(thisline, "interpolation" => line[i:end])
 						break
 					else
-						push!(thisline, "insert" => line[i:prevind(line, j)])
+						push!(thisline, "interpolation" => line[i:prevind(line, j)])
 						pre=i=j
 					end
 				else
@@ -306,12 +306,12 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 				end
 			elseif !emp && last(stack)==0x0 && ch=='('
 				dealf()
-				push!(thisline, "insert" => "(")
+				push!(thisline, "interpolation" => "(")
 				b_stack[end]+=one(UInt16)
 				pre=i=i+1
 			elseif !emp && last(stack)==0x0 && ch==')'
 				dealf()
-				push!(thisline, "insert" => ")")
+				push!(thisline, "interpolation" => ")")
 				if b_stack[end]==zero(UInt16)
 					pop!(b_stack)
 					pop!(stack)
