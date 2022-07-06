@@ -15,6 +15,7 @@ function Base.show(io::IO, ::MIME"text/html", hll::HighlightLines)
 		end
 	end
 end
+html(hll::HighlightLines)=sprint(Base.show, MIME("text/html"), hll)
 
 Base.@kwdef struct CommonHighlightSetting
 	keepempty::Bool = true

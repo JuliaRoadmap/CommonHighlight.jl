@@ -15,7 +15,6 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 	hasrepl=true
 	stack=Vector{UInt8}()
 	b_stack=Vector{UInt16}() # 用于 $( 的括号栈
-	prestr=""
 	#=
 	0	$(
 	1	"
@@ -36,10 +35,10 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 		emp=isempty(stack)
 		weakemp=emp || last(stack)==0x0
 		dealf= (to::Int= prevind(line, i)) -> begin
-			str=prestr*line[pre:to]
+			str=line[pre:to]
 			if str!=""
 				push!(thisline, (weakemp ? "plain" : "string") => str)
-				prestr=""
+				pre=i
 			end
 		end
 		# REPL特殊处理尝试
@@ -159,24 +158,20 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 					end
 				elseif last(stack)==0x1 # 闭合"字符串
 					if i==sz # 末尾
-						push!(thisline, "string" => prestr*line[pre:end])
-						prestr=""
+						push!(thisline, "string" => line[pre:end])
 						break
 					else
-						push!(thisline, "string" => prestr*line[pre:i])
-						prestr=""
+						push!(thisline, "string" => line[pre:i])
 						pop!(stack)
 						pre=i=i+1
 					end
 				elseif last(stack)==0x3 # 闭合"""字符串
 					if i>sz-2
-						push!(thisline, "string" => prestr*line[pre:end])
-						prestr=""
+						push!(thisline, "string" => line[pre:end])
 						break
 					end
 					if line[i+1]=='"' && line[i+2]=='"'
-						push!(thisline, "string" => prestr*line[pre:i+2])
-						prestr=""
+						push!(thisline, "string" => line[pre:i+2])
 						pop!(stack)
 						pre=i=i+3
 					else
@@ -204,8 +199,22 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 				pre=i=j
 			elseif inside && ch=='\\'
 				dealf()
-				push!(thisline, "escape" => line[i:i+1])
-				pre=i=nextind(co, i+1)
+				if i==sz
+				else
+					ch=line[i+1]
+					j=i+2
+					if ch=='x'
+					elseif ch=='u'
+					elseif ch=='U'
+					elseif '0'<=ch<='7'
+					end
+					if j>sz
+						push!(thisline, "escape" => line[i:end])
+						break
+					end
+					push!(thisline, "escape" => line[i:j-1])
+					pre=i=j
+				end
 			elseif inside && ch=='$'
 				j=i+1; ch=line[j]
 				if ch=='('
@@ -255,8 +264,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 					push!(stack, 0x2)
 					i+=1
 				elseif last(stack)==0x2 # 闭合`
-					push!(thisline, "string" => prestr*line[pre:i])
-					prestr=""
+					push!(thisline, "string" => line[pre:i])
 					pop!(stack)
 					pre=i=i+1
 				else
@@ -292,14 +300,12 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 				end
 			elseif !emp && last(stack)==0x4 && ch=='='
 				if i==sz
-					push!(thisline, prestr*line[pre:end])
-					prestr=""
+					push!(thisline, line[pre:end])
 					break
 				elseif line[i+1]=='#' # 闭合多行注释
 					if !emp && last(stack)==0x4
 						pop!(stack)
-						push!(thisline, prestr*line[pre:i+1])
-						prestr=""
+						push!(thisline, line[pre:i+1])
 						pre=i=i+2
 					else
 						i+=1
@@ -325,7 +331,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 			end
 		end
 		if pre<i
-			prestr*=line[pre:end]
+			push!(thisline, (weakemp ? "plain" : "string") => line[pre:end])
 		end
 	end
 	return HighlightLines{Vector}(vec)
