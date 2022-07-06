@@ -21,7 +21,7 @@ function highlight_lines(::Union{Val{:shell}, Val{:sh}}, content::AbstractString
 		else
 			find=findfirst(r"^[a-zA-Z0-9_-]*(>|#|~) ", line)
 			if find===nothing
-				push!(vec, "plain" => line)
+				push!(vec, ("plain" => line,))
 			else
 				sz=find.stop-1
 				maystart=line[1:sz]

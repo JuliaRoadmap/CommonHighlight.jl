@@ -240,7 +240,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 					pre=i=i+2
 				elseif Base.is_id_start_char(ch)
 					dealf()
-					j=nextind(co, j)
+					j=nextind(line, j)
 					while j<=sz && Base.is_id_char(line[j])
 						j=nextind(line, j)
 					end
@@ -258,9 +258,9 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 				j=i+1
 				if Base.is_id_start_char(line[j])
 					dealf()
-					j=nextind(co, j)
+					j=nextind(line, j)
 					while j<=sz && Base.is_id_char(line[j])
-						j=nextind(co, j)
+						j=nextind(line, j)
 					end
 					if j>sz
 						push!(thisline, "macro" => line[i:end])
@@ -297,9 +297,9 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 				end
 				if j>sz
 					push!(thisline, "number" => line[i:end])
-					return s
+					break
 				else
-					push!(thisline, "number" => line[i:prevind(line, j)])
+					push!(thisline, "number" => line[i:j-1])
 					pre=i=j
 				end
 			elseif weakemp && ch=='#'
@@ -348,6 +348,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 		if pre<i
 			push!(thisline, (weakemp ? "plain" : "string") => line[pre:end])
 		end
+		push!(vec, thisline)
 	end
 	return HighlightLines{Vector}(vec)
 end

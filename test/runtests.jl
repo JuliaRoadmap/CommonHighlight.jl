@@ -5,7 +5,7 @@ using Test
 	setting=CommonHighlightSetting()
 	@testset "Plain" begin
 		t_pl=(str::String, res::Vector) -> begin
-			highlight_lines(str, :plain, setting).lines == res
+			highlight_lines(:plain, str, setting).lines == res
 		end
 		@test t_pl("1\n2", [("plain" => "1",), ("plain" => "2",)])
 		@test t_pl("1\n2\n", [("plain" => "1",), ("plain" => "2",), ("plain" => "",)])
@@ -13,29 +13,29 @@ using Test
 	end
 	@testset "Shell" begin
 		s_pl=(str::String, res::Vector) -> begin
-			highlight_lines(str, :shell, setting).lines == res
+			highlight_lines(:shell, str, setting).lines == res
 		end
 		@test s_pl("\$ login\n\$ ls\n1.txt", [
 			("shell" => "\$", "plain" => " login"),
 			("shell" => "\$", "plain" => " ls"),
 			("plain" => "1.txt",)
 		])
-		@test s_pl("vir#> cat 文字\nvir#>", [
-			("shell" => "vir#>", "plain" => "cat 文字"),
-			("shell" => "vir#>",)
+		@test s_pl("vir> cat 文字\nvir>", [
+			("shell" => "vir>", "plain" => "cat 文字"),
+			("shell" => "vir>",)
 		])
-		@test s_pl("vir#> \$ 文字\nvir#> ", [
-			("shell" => "vir#>", "plain" => "\$ 文字"),
-			("shell" => "vir#>", "plain" => " ")
+		@test s_pl("vir> \$ 文字\nvir> ", [
+			("shell" => "vir>", "plain" => " \$ 文字"),
+			("shell" => "vir>", "plain" => " ")
 		])
-		@test s_pl("vir#>文\nvir#> ", [
-			("plain" => "vir#>文",),
-			("shell" => "vir#>", "plain" => " ")
+		@test s_pl("vir>文\nvir> ", [
+			("plain" => "vir>文",),
+			("shell" => "vir>", "plain" => " ")
 		])
 	end
 	@testset "Julia" begin
 		j_pl=(str::String, res::Vector) -> begin
-			highlight_lines(str, :jl, setting).lines == res
+			highlight_lines(:jl, str, setting).lines == res
 		end
 		@test j_pl("#注释", [
 			("comment" => "#注释",)

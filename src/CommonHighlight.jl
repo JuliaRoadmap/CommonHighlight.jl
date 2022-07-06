@@ -1,8 +1,8 @@
 module CommonHighlight
-export HighlightLines, highlight_lines
+export HighlightLines, CommonHighlightSetting, highlight_lines
 
 struct HighlightLines{T}
-	lines::Vector{T{Pair}}
+	lines::Vector{T}
 end
 function Base.show(io::IO, ::MIME"text/html", hll::HighlightLines)
 	for line in hll.lines
