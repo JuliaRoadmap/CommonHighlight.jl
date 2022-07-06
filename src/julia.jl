@@ -14,6 +14,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 	sizehint!(vec, length(lines))
 	hasrepl=true
 	stack=Vector{UInt8}()
+	b_stack=Vector{UInt16}() # 用于 $( 的括号栈
 	prestr=""
 	#=
 	0	$(
@@ -70,11 +71,6 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 			emp=isempty(stack)
 			weakemp=emp || last(stack)==0x0
 			inside=!emp && 0x1<=last(stack)<=0x3
-			#= if !emp && last(stack)==0x3 # 多行注释
-				f=findnext('#', line, i)
-				if f!==nothing
-				end
-			end =#
 			ch=line[i]
 			while ch==' ' || ch=='\t'
 				i+=1
@@ -162,24 +158,26 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 					end
 				elseif last(stack)==0x1 # 闭合"字符串
 					if i==sz # 末尾
-						push!(thisline, line[pre:end])
+						push!(thisline, "string" => prestr*line[pre:end])
+						prestr=""
 						break
 					else
-						push!(thisline, line[pre:end])
-						i+=1
-						pre=i
+						push!(thisline, "string" => prestr*line[pre:i])
+						prestr=""
 						pop!(stack)
+						pre=i=i+1
 					end
 				elseif last(stack)==0x3 # 闭合"""字符串
 					if i>sz-2
-						push!(thisline, "string" => line[pre:end])
+						push!(thisline, "string" => prestr*line[pre:end])
+						prestr=""
 						break
 					end
 					if line[i+1]=='"' && line[i+2]=='"'
-						push!(thisline, "string" => line[pre:i+2])
-						i+=3
-						pre=i
+						push!(thisline, "string" => prestr*line[pre:i+2])
+						prestr=""
 						pop!(stack)
+						pre=i=i+3
 					else
 						i+=1
 					end
@@ -213,6 +211,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 					dealf()
 					push!(thisline, "insert" => "\$(")
 					push!(stack, 0x0)
+					push!(b_stack, zero(UInt16))
 					pre=i=i+2
 				elseif Base.is_id_start_char(ch)
 					dealf()
@@ -230,6 +229,98 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 				else
 					i+=1
 				end
+			elseif weakemp && ch=='@'
+				j=i+1
+				if Base.is_id_start_char(line[j])
+					dealf()
+					j=nextind(co, j)
+					while j<=sz && Base.is_id_char(line[j])
+						j=nextind(co, j)
+					end
+					if j>sz
+						push!(thisline, "macro" => line[i:end])
+						break
+					else
+						push!(thisline, "macro" => line[i:prevind(line, j)])
+						pre=i=j
+					end
+				else
+					i+=1
+				end
+			elseif ch=='`'
+				if weakemp # 命令
+					dealf()
+					pre=i
+					push!(stack, 0x2)
+					i+=1
+				elseif last(stack)==0x2 # 闭合`
+					push!(thisline, "string" => prestr*line[pre:i])
+					prestr=""
+					pop!(stack)
+					pre=i=i+1
+				else
+					i+=1
+				end
+			elseif weakemp && '0'<=ch<='9' # 推测是数字
+				dealf()
+				if i==sz
+					push!(thisline, "number" => "$ch")
+				end
+				j=i+1
+				if j!=sz && (co[j]=='x' || co[j]=='o') j+=1 end
+				while j<=sz && ('0'<=co[j]<='9' || 'a'<=co[j]<='f' || co[j]=='_')
+					j+=1
+				end
+				if j>sz
+					push!(thisline, "number" => line[i:end])
+					return s
+				else
+					push!(thisline, "number" => line[i:prevind(line, j)])
+					pre=i=j
+				end
+			elseif weakemp && ch=='#'
+				dealf()
+				if i==sz
+					push!(thisline, "comment" => "#")
+					break
+				elseif line[i+1]=='=' # 多行注释
+					push!(stack, 0x4)
+				else # 单行注释
+					push!(thisline, "comment" => line[i:end])
+					break
+				end
+			elseif !emp && last(stack)==0x4 && ch=='='
+				if i==sz
+					push!(thisline, prestr*line[pre:end])
+					prestr=""
+					break
+				elseif line[i+1]=='#' # 闭合多行注释
+					if !emp && last(stack)==0x4
+						pop!(stack)
+						push!(thisline, prestr*line[pre:i+1])
+						prestr=""
+						pre=i=i+2
+					else
+						i+=1
+					end
+				end
+			elseif !emp && last(stack)==0x0 && ch=='('
+				dealf()
+				push!(thisline, "insert" => "(")
+				b_stack[end]+=one(UInt16)
+				pre=i=i+1
+			elseif !emp && last(stack)==0x0 && ch==')'
+				dealf()
+				push!(thisline, "insert" => ")")
+				if b_stack[end]==zero(UInt16)
+					pop!(b_stack)
+					pop!(stack)
+					pre=i=i+1
+				else
+					b_stack[end]-=one(UInt16)
+				end
+			else
+				i=nextind(line, i)
 			end
 		end
 		if pre<i
