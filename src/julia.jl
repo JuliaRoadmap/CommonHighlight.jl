@@ -204,9 +204,24 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 					ch=line[i+1]
 					j=i+2
 					if ch=='x'
+						if i+3<=sz && isxdigit(line[i+3])
+							j=i+4
+						end
 					elseif ch=='u'
+						limit=min(sz, i+5)
+						while j<=limit && isxdigit(line[j])
+							j+=1
+						end
 					elseif ch=='U'
+						limit=min(sz, i+9)
+						while j<=limit && isxdigit(line[j])
+							j+=1
+						end
 					elseif '0'<=ch<='7'
+						limit=min(sz, i+3)
+						while j<=limit && '0'<=line[j]<='7'
+							j+=1
+						end
 					end
 					if j>sz
 						push!(thisline, "escape" => line[i:end])
