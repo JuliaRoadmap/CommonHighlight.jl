@@ -2,8 +2,20 @@ module CommonHighlight
 export HighlightLines, highlight_lines
 
 struct HighlightLines{T}
-	lines::Vector{T}
+	lines::Vector{T{Pair}}
 end
+function Base.show(io::IO, ::MIME"text/html", hll::HighlightLines)
+	for line in hll.lines
+		for chunk in line
+			str=chunk.second
+			str=replace(str, '&' => "&quot;")
+			str=replace(str, '<' => "&lt;")
+			str=replace(str, '>' => "&gtl")
+			print(io, "<span class='hl-$(chunk.first)'>$str</span>")
+		end
+	end
+end
+
 Base.@kwdef struct CommonHighlightSetting
 	keepempty::Bool = true
 end

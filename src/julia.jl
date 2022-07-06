@@ -25,7 +25,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 	=#
 	for line in lines
 		if line==""
-			push!(vec, ())
+			push!(vec, ["plain" => ""])
 			continue
 		end
 		thisline=Vector{Pair}()
@@ -36,10 +36,11 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 		emp=isempty(stack)
 		weakemp=emp || last(stack)==0x0
 		dealf= (to::Int= prevind(line, i)) -> begin
-			push!(thisline,
-				(weakemp ? "plain" : "string") => prestr*line[pre:to]
-			)
-			prestr=""
+			str=prestr*line[pre:to]
+			if str!=""
+				push!(thisline, (weakemp ? "plain" : "string") => str)
+				prestr=""
+			end
 		end
 		# REPL特殊处理尝试
 		if emp
@@ -94,7 +95,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 						st==1 ? break : st-=1
 					elseif line[j]=='"' && st!=0
 						instr=true
-					elseif !(Base.is_id_char(line[j]) || co[j]==' ' || co[j]==',' || co[j]==':')
+					elseif !(Base.is_id_char(line[j]) || line[j]==' ' || line[j]==',' || line[j]==':')
 						break
 					end
 					j=nextind(line, j)
@@ -203,7 +204,7 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 				pre=i=j
 			elseif inside && ch=='\\'
 				dealf()
-				push!(thisline, "escape" => co[i:i+1])
+				push!(thisline, "escape" => line[i:i+1])
 				pre=i=nextind(co, i+1)
 			elseif inside && ch=='$'
 				j=i+1; ch=line[j]
@@ -267,8 +268,8 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 					push!(thisline, "number" => "$ch")
 				end
 				j=i+1
-				if j!=sz && (co[j]=='x' || co[j]=='o') j+=1 end
-				while j<=sz && ('0'<=co[j]<='9' || 'a'<=co[j]<='f' || co[j]=='_')
+				if j!=sz && (line[j]=='x' || line[j]=='o' || line[j]=='b') j+=1 end
+				while j<=sz && ('0'<=line[j]<='9' || 'a'<=line[j]<='f' || line[j]=='_')
 					j+=1
 				end
 				if j>sz
