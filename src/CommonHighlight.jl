@@ -26,8 +26,9 @@ function highlight_lines(language::Symbol, content::AbstractString, setting::Com
 	return highlight_lines(Val(language), content, setting)
 end
 
-include("plain.jl")
-include("shell.jl")
-include("julia.jl")
+include("rules.jl")
+include("default/plain.jl")
+include("default/shell.jl")
+include("default/julia.jl")
 
 end
