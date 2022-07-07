@@ -17,7 +17,8 @@ the integer shows where the next reading index shall be
 """
 function userule end
 
-function canuserule end
+struct EmptyRule end
+userule(::EmptyRule, ::AbstractString, ::Int, stack, meta)= str=="" ? (1, :plain => "") : nothing
 
 """
 This rule is used to recognize patterns at the start of a line.
@@ -34,8 +35,10 @@ Base.@kwdef struct LineStartRule <: CommonHighlightRule
 	hl_type::Symbol = :shell
 	record::Bool = false
 end
-canuserule(::LineStartRule, ::AbstractString, i::Int, stack, meta)= i==1
 function userule(r::LineStartRule, str::AbstractString, ::Int, stack, meta)
+	if i!=1
+		return nothing
+	end
 	if isa(r.pattern, Regex)
 		f=findfirst(r.pattern, str)
 		if f===nothing
@@ -58,8 +61,10 @@ end
 This rule checks `meta[:record_linestart]`
 """
 struct RecordedLineStartRule <: CommonHighlightRule end
-canuserule(::RecordedLineStartRule, ::AbstractString, i::Int, stack, meta)= i==1
 function userule(::RecordedLineStartRule, str::AbstractString, ::Int, stack, meta)
+	if i!=1
+		return nothing
+	end
 	record=meta[:record_linestart]
 	if startswith(str, record)
 		return (sizeof(str)+1, :shell => record)
@@ -69,7 +74,6 @@ function userule(::RecordedLineStartRule, str::AbstractString, ::Int, stack, met
 end
 
 struct PlainAllRule <: CommonHighlightRule end
-canuserule(::PlainAllRule, ::AbstractString, i::Int, stack, meta)= true
 function userule(::RecordedLineStartRule, str::AbstractString, i::Int, stack, meta)
 	return (sizeof(str)+1, :plain => str[i:end])
 end
