@@ -4,6 +4,8 @@ export HighlightLines, CommonHighlightSetting, highlight_lines
 struct HighlightLines{T}
 	lines::Vector{T}
 end
+
+export show, html
 function Base.show(io::IO, ::MIME"text/html", hll::HighlightLines)
 	for line in hll.lines
 		for chunk in line
@@ -27,6 +29,7 @@ function highlight_lines(language::Symbol, content::AbstractString, setting::Com
 end
 
 include("rules.jl")
+include("ruleset.jl")
 include("default/plain.jl")
 include("default/shell.jl")
 include("default/julia.jl")
