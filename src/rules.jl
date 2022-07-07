@@ -10,21 +10,47 @@
 	st_bra_m # [
 	st_bra_l # {
 end
+function closeprev(vec, str::AbstractString, from::Int, over::Int, status)
+	to=prevind(str, over)
+	chunk=str[from:to]
+	if chunk!=""
+		if status.weakemp
+			push!(vec, :plain => str)
+		else
+			push!(vec, :string => str)
+		end
+		status[:prev]=over
+	end
+end
+
 abstract type CommonHighlightRule end
 
 """
-`userule(r::CommonHighlightRule, str::AbstractString, i::Int, stack, meta) -> Union{Tuple{Int, Pair}, Nothing}`
-
-`nothing` will be return if the rule isn't successfully excuted\\
-the integer shows where the next reading index shall be
+`userule(r::CommonHighlightRule, vec, str::AbstractString, i::Int, status) -> Int`
 """
-function userule end
+function userule::Int end
 
 struct EmptyRule end
-userule(::EmptyRule, ::AbstractString, ::Int, stack, meta)= str=="" ? (1, :plain => "") : nothing
+function userule(::EmptyRule, vec, str::AbstractString, ::Int, status)
+	if str==""
+		return 0
+	else
+		push!(vec, :plain => "")
+		return 1
+	end
+end
 
 struct SelfDefRule f::Function end
-userule(r::EmptyRule, str::AbstractString, i::Int, stack, meta)= r.f(str, i, stack, meta)
+userule(r::EmptyRule, vec, str::AbstractString, i::Int, status)= r.f(str, vec, str, i, status)
+
+struct JumpSpaceRule end
+function userule(::JumpSpaceRule, vec, str::AbstractString, i::Int, status)
+	over=sizeof(str)+1
+	while i<over && (str[i]==' ' || str[i]=='\t')
+		i+=1
+	end
+	return i
+end
 
 """
 This rule is used to recognize patterns at the start of a line.
@@ -41,32 +67,31 @@ Base.@kwdef struct LineStartRule <: CommonHighlightRule
 	hl_type::Symbol = :shell
 	record::Bool = false
 end
-function userule(r::LineStartRule, str::AbstractString, ::Int, stack, meta)
+function userule(r::LineStartRule, vec, str::AbstractString, i::Int, status)
 	if i!=1
-		return nothing
+		return 0
 	end
 	if isa(r.pattern, Regex)
 		f=findfirst(r.pattern, str)
-		if f===nothing
-			return nothing
-		end
-		if f.stop<patlength
-			return nothing
+		if f===nothing || f.stop<patlength
+			return 0
 		end
 		res=str[1:f.stop+r.offset]
 		if r.record
-			meta[:record_linestart]=res
+			status[:record_linestart]=res
 		end
-		return (f.stop+r.offset+1, r.hl_type => res)
+		push!(vec, r.hl_type => res)
+		return f.stop+r.offset+1
 	else
 		if startswith(str, r.pattern)
 			res=str[1:r.patlength+r.offset]
 			if r.record
 				meta[:record_linestart]=res
 			end
-			return (r.patlength+offset+1, r.hl_type => res)
+			push!(vec, r.hl_type => res)
+			return r.patlength+offset+1
 		else
-			return nothing
+			return 0
 		end
 	end
 end
@@ -75,32 +100,34 @@ end
 This rule checks `meta[:record_linestart]`
 """
 struct RecordedLineStartRule <: CommonHighlightRule end
-function userule(::RecordedLineStartRule, str::AbstractString, ::Int, stack, meta)
+function userule(::RecordedLineStartRule, vec, str::AbstractString, i::Int, status)
 	if i!=1
-		return nothing
+		return 0
 	end
-	record=meta[:record_linestart]
+	record=status[:record_linestart]
 	if startswith(str, record)
-		return (sizeof(str)+1, :shell => record)
+		push!(vec, :shell => record)
+		return sizeof(str)+1
 	else
-		return nothing
+		return 0
 	end
 end
 
 struct PlainAllRule <: CommonHighlightRule end
-function userule(::RecordedLineStartRule, str::AbstractString, i::Int, stack, meta)
-	return (sizeof(str)+1, :plain => str[i:end])
+function userule(::RecordedLineStartRule, vec, str::AbstractString, i::Int, status)
+	push!(vec, :plain => str[status[:prev]:end])
+	return sizeof(str)+1
 end
 
 struct IDRule
 	id_start_char::Function
 	id_char::Function
-	specialize::Vector{<:Function}
+	specialize::Function
 end
-function userule(r::IDRule, str::AbstractString, i::Int, stack, meta)
+function userule(r::IDRule, vec, str::AbstractString, i::Int, status)
 	ch=str[i]
 	if !r.id_start_char(ch)
-		return nothing
+		return 0
 	end
 	over=sizeof(str)+1
 	j=nextind(sz, i)
@@ -112,11 +139,10 @@ function userule(r::IDRule, str::AbstractString, i::Int, stack, meta)
 		j=nextind(str, j)
 	end
 	to=prevind(str, j)
-	for func in r.specialize
-		res=func(str, i, to, stack, meta)
-		if res!==nothing
-			return (j, res)
-		end
+	chunk=str[i:to]
+	res=r.specialize(str, i, to, chunk, status)
+	if res!=0
+		return j
 	end
-	return (j, :plain => str[i:to])
+	return j
 end
