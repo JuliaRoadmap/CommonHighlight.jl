@@ -10,10 +10,19 @@ const jl_specials=[
 ]
 function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}}, content::AbstractString, setting::CommonHighlightSetting)
 	lines=split(content, '\n'; keepempty=setting.keepempty)
-	vec=Vector{Vector}()
-	sizehint!(vec, length(lines))
-	hasrepl=true
+	# meta=Dict(:hasrepl => false)
 	stack=Vector{UInt8}()
+	vec=useruleset(RuleSet([
+		EmptyRule(),
+		LineStartRule(; pattern="julia>", patlength=6),
+		LineStartRule(; pattern="help?>", patlength=6, hl_type=:help),
+		LineStartRule(; pattern="shell>", patlength=6, hl_type=:repl_shell),
+		LineStartRule(; pattern=r"^\([0-9a-zA-Z._@]*\) pkg>", hl_type=:repl_pkg),
+		IDRule(Base.is_id_start_char, Base.is_id_char, [
+			(line::AbstractString, from::Int, to::Int, stack, meta) -> begin
+			end
+		]),
+	]), lines, stack, nothing)
 	b_stack=Vector{UInt16}() # 用于 $( 的括号栈
 	#=
 	0	$(
@@ -39,32 +48,6 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 			if str!=""
 				push!(thisline, (weakemp ? "plain" : "string") => str)
 				pre=i
-			end
-		end
-		# REPL特殊处理尝试
-		if emp
-			if startswith(line, "julia>")
-				hasrepl=true
-				push!(thisline, "shell" => "julia>")
-				pre=i=7
-			elseif startswith(line, "help?>")
-				push!(thisline, "repl-help" => "help?>")
-				pre=i=7
-			elseif startswith(line, "shell>")
-				push!(thisline, "repl-shell" => "shell>")
-				pre=i=7
-			else
-				f=findfirst(r"^\([0-9a-zA-Z._@]*\) pkg>", line)
-				if f!==nothing
-					push!(thisline, "repl-pkg" => line[1:f.stop])
-					pre=i=f.stop+1
-				elseif startswith(line, "ERROR:") && hasrepl
-					push!(thisline, "repl-error" => "ERROR:")
-					pre=i=7
-				elseif startswith(line, "caused by:") && hasrepl
-					push!(thisline, "repl-error" => "caused by:")
-					pre=i=11
-				end
 			end
 		end
 		while i<=sz

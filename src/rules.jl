@@ -6,6 +6,9 @@
 	st_q3_1 # '''
 	st_q3_2 # """
 	st_comment # 多行注释
+	st_bra_s # (
+	st_bra_m # [
+	st_bra_l # {
 end
 abstract type CommonHighlightRule end
 
@@ -19,6 +22,9 @@ function userule end
 
 struct EmptyRule end
 userule(::EmptyRule, ::AbstractString, ::Int, stack, meta)= str=="" ? (1, :plain => "") : nothing
+
+struct SelfDefRule f::Function end
+userule(r::EmptyRule, str::AbstractString, i::Int, stack, meta)= r.f(str, i, stack, meta)
 
 """
 This rule is used to recognize patterns at the start of a line.
@@ -47,10 +53,18 @@ function userule(r::LineStartRule, str::AbstractString, ::Int, stack, meta)
 		if f.stop<patlength
 			return nothing
 		end
-		return (f.stop+r.offset+1, r.hl_type => str[1:f.stop+r.offset])
+		res=str[1:f.stop+r.offset]
+		if r.record
+			meta[:record_linestart]=res
+		end
+		return (f.stop+r.offset+1, r.hl_type => res)
 	else
 		if startswith(str, r.pattern)
-			return (r.patlength+offset+1, r.hl_type => str[1:r.patlength+r.offset])
+			res=str[1:r.patlength+r.offset]
+			if r.record
+				meta[:record_linestart]=res
+			end
+			return (r.patlength+offset+1, r.hl_type => res)
 		else
 			return nothing
 		end
@@ -76,4 +90,33 @@ end
 struct PlainAllRule <: CommonHighlightRule end
 function userule(::RecordedLineStartRule, str::AbstractString, i::Int, stack, meta)
 	return (sizeof(str)+1, :plain => str[i:end])
+end
+
+struct IDRule
+	id_start_char::Function
+	id_char::Function
+	specialize::Vector{<:Function}
+end
+function userule(r::IDRule, str::AbstractString, i::Int, stack, meta)
+	ch=str[i]
+	if !r.id_start_char(ch)
+		return nothing
+	end
+	over=sizeof(str)+1
+	j=nextind(sz, i)
+	while j<over
+		ch=@inbounds str[i]
+		if !r.id_char(ch)
+			break
+		end
+		j=nextind(str, j)
+	end
+	to=prevind(str, j)
+	for func in r.specialize
+		res=func(str, i, to, stack, meta)
+		if res!==nothing
+			return (j, res)
+		end
+	end
+	return (j, :plain => str[i:to])
 end
