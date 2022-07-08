@@ -97,7 +97,7 @@ function userule(r::LineStartRule, vec, str::AbstractString, i::Int, status)
 end
 
 """
-This rule checks `meta[:record_linestart]`
+This rule checks `status[:record_linestart]`
 """
 struct RecordedLineStartRule <: CommonHighlightRule end
 function userule(::RecordedLineStartRule, vec, str::AbstractString, i::Int, status)

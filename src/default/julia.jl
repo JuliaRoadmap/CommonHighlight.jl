@@ -2,43 +2,34 @@ const jl_keywords=[
 	"end", "if", "for", "else", "elseif", "function", "return", "while", "using", "try", "catch",
 	"const", "struct", "mutable", "abstract", "type", "begin", "macro", "do",
 	"break", "continue", "finally", "where", "module", "import", "global", "export",
-	"local","quote","let",
-	"baremodule","primitive"
+	"local", "quote", "let",
+	"baremodule", "primitive"
 ]
 const jl_specials=[
 	"true", "false", "nothing", "missing"
 ]
 function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}}, content::AbstractString, setting::CommonHighlightSetting)
 	lines=split(content, '\n'; keepempty=setting.keepempty)
-	# meta=Dict(:hasrepl => false)
-	stack=Vector{UInt8}()
-	vec=useruleset(RuleSet([
+	status=Dict(:stack => Vector{UInt8}(), :b_stack => Vector{UInt16}())
+	vec=useruleset( RuleSet([
+		IDRule(Base.is_id_start_char, Base.is_id_char,
+			(line::AbstractString, from::Int, to::Int, chunk::AbstractString, status) -> begin
+				if in(chunk, jl_keywords)
+					return :keyword => chunk
+				elseif in(chunk, jl_specials)
+					return :special => chunk
+				end
+			end
+		),
+	], [
 		EmptyRule(),
 		LineStartRule(; pattern="julia>", patlength=6),
 		LineStartRule(; pattern="help?>", patlength=6, hl_type=:help),
 		LineStartRule(; pattern="shell>", patlength=6, hl_type=:repl_shell),
 		LineStartRule(; pattern=r"^\([0-9a-zA-Z._@]*\) pkg>", hl_type=:repl_pkg),
-		IDRule(Base.is_id_start_char, Base.is_id_char, [
-			(line::AbstractString, from::Int, to::Int, stack, meta) -> begin
-			end
-		]),
-	]), lines, stack, nothing)
-	b_stack=Vector{UInt16}() # 用于 $( 的括号栈
-	#=
-	0	$(
-	1	"
-	2	`
-	3	"""
-	4	\#\=
-	=#
+	]), lines, status)
+
 	for line in lines
-		if line==""
-			push!(vec, ["plain" => ""])
-			continue
-		end
-		thisline=Vector{Pair}()
-		push!(vec, thisline)
-		sz=thisind(line, sizeof(line))
 		i=1
 		pre=1
 		emp=isempty(stack)
