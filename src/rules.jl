@@ -86,7 +86,7 @@ function userule(r::LineStartRule, vec, str::AbstractString, i::Int, status)
 		if startswith(str, r.pattern)
 			res=str[1:r.patlength+r.offset]
 			if r.record
-				meta[:record_linestart]=res
+				status[:record_linestart]=res
 			end
 			push!(vec, r.hl_type => res)
 			return r.patlength+offset+1
@@ -130,9 +130,9 @@ function userule(r::IDRule, vec, str::AbstractString, i::Int, status)
 		return 0
 	end
 	over=sizeof(str)+1
-	j=nextind(sz, i)
+	j=nextind(str, i)
 	while j<over
-		ch=@inbounds str[i]
+		ch=@inbounds str[j]
 		if !r.id_char(ch)
 			break
 		end
@@ -140,9 +140,36 @@ function userule(r::IDRule, vec, str::AbstractString, i::Int, status)
 	end
 	to=prevind(str, j)
 	chunk=str[i:to]
-	res=r.specialize(str, i, to, chunk, status)
+	res=r.specialize(vec, str, i, over, chunk, status)
 	if res!=0
 		return j
 	end
 	return j
+end
+
+struct InterpolationRule
+	id_start_char::Function
+	id_char::Function
+end
+function userule(r::InterpolationRule, vec, str, i::Int, status)
+	sz=sizeof(str)
+	if str[i]!='$' || i==sz || !r.id_start_char(str[i+1])
+		return 0
+	end
+	over=sz+1
+	j=nextind(str, i)
+	while j<over
+		ch=@inbounds str[j]
+		if !r.id_char(ch)
+			break
+		end
+		j=nextind(str, j)
+	end
+	if j==over
+		return 0
+	else
+		push!(vec, str[i:prevind(str, j)])
+		status[:prev]=j
+		return j
+	end
 end

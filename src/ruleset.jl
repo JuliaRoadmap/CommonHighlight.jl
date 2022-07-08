@@ -29,6 +29,7 @@ function useruleset(rs::RuleSet, lines::AbstractVector, status)
 						break
 					end
 					flag=false
+					break
 				end
 			end
 			if breaks
@@ -37,6 +38,9 @@ function useruleset(rs::RuleSet, lines::AbstractVector, status)
 			if flag
 				i=nextind(line, i)
 			end
+		end
+		if status[:prev]<i
+			closeprev(thisline, str, status[:prev], sz+1, status)
 		end
 		push!(vec, thisline)
 	end

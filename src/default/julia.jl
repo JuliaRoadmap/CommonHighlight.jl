@@ -13,12 +13,22 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 	status=Dict(:stack => Vector{UInt8}(), :b_stack => Vector{UInt16}())
 	vec=useruleset( RuleSet([
 		IDRule(Base.is_id_start_char, Base.is_id_char,
-			(line::AbstractString, from::Int, to::Int, chunk::AbstractString, status) -> begin
+			(vec, line::AbstractString, from::Int, over::Int, chunk::AbstractString, status) -> begin
 				if in(chunk, jl_keywords)
-					return :keyword => chunk
+					closeprev(vec, line, from, over, status)
+					push!(vec, :keyword => chunk)
+					status[:prev]=over
+					return over
 				elseif in(chunk, jl_specials)
-					return :special => chunk
+					closeprev(vec, line, from, over, status)
+					push!(vec, :special => chunk)
+					status[:prev]=over
+					return over
+				elseif over>sizeof(line)
+					closeprev(vec, line, from, over, status)
+					return over
 				end
+				return 0
 			end
 		),
 	], [
