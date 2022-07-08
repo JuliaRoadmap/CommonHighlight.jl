@@ -20,6 +20,7 @@ end
 html(hll::HighlightLines)=sprint(Base.show, MIME("text/html"), hll)
 
 Base.@kwdef struct CommonHighlightSetting
+	judge_by_name::Bool = true
 	keepempty::Bool = true
 end
 

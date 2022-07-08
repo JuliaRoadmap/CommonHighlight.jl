@@ -10,11 +10,11 @@
 	st_bra_m # [
 	st_bra_l # {
 end
-function closeprev(vec, str::AbstractString, from::Int, over::Int, status)
+function closeprev(vec, str::AbstractString, over::Int, status)
 	to=prevind(str, over)
-	chunk=str[from:to]
+	chunk=str[status[:prev]:to]
 	if chunk!=""
-		if status.weakemp
+		if status[:weakemp]
 			push!(vec, :plain => str)
 		else
 			push!(vec, :string => str)
@@ -125,6 +125,9 @@ struct IDRule
 	specialize::Function
 end
 function userule(r::IDRule, vec, str::AbstractString, i::Int, status)
+	if !status[:weakemp]
+		return 0
+	end
 	ch=str[i]
 	if !r.id_start_char(ch)
 		return 0
@@ -153,11 +156,11 @@ struct InterpolationRule
 end
 function userule(r::InterpolationRule, vec, str, i::Int, status)
 	sz=sizeof(str)
-	if str[i]!='$' || i==sz || !r.id_start_char(str[i+1])
+	if str[i]!='$' || status[:weakemp] || i==sz || !r.id_start_char(str[i+1])
 		return 0
 	end
 	over=sz+1
-	j=nextind(str, i)
+	j=nextind(str, i+1)
 	while j<over
 		ch=@inbounds str[j]
 		if !r.id_char(ch)
@@ -165,7 +168,7 @@ function userule(r::InterpolationRule, vec, str, i::Int, status)
 		end
 		j=nextind(str, j)
 	end
-	if j==over
+	if j>=over
 		return 0
 	else
 		push!(vec, str[i:prevind(str, j)])

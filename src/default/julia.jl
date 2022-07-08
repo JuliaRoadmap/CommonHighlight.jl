@@ -12,20 +12,30 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 	lines=split(content, '\n'; keepempty=setting.keepempty)
 	status=Dict(:stack => Vector{UInt8}(), :b_stack => Vector{UInt16}())
 	vec=useruleset( RuleSet([
+		InterpolationRule(Base.is_id_start_char, Base.is_id_char),
 		IDRule(Base.is_id_start_char, Base.is_id_char,
 			(vec, line::AbstractString, from::Int, over::Int, chunk::AbstractString, status) -> begin
 				if in(chunk, jl_keywords)
-					closeprev(vec, line, from, over, status)
+					closeprev(vec, line, i, status)
 					push!(vec, :keyword => chunk)
 					status[:prev]=over
 					return over
 				elseif in(chunk, jl_specials)
-					closeprev(vec, line, from, over, status)
+					closeprev(vec, line, i, status)
 					push!(vec, :special => chunk)
 					status[:prev]=over
 					return over
+				elseif setting.judge_by_name && isuppercase(line[from])
+					closeprev(vec, line, i, status)
+					push!(vec, :type => chunk)
+					return over
 				elseif over>sizeof(line)
-					closeprev(vec, line, from, over, status)
+					closeprev(vec, line, i, status)
+					return over
+				elseif line[nextind(line, from)]=='('
+					closeprev(vec, line, i, status)
+					push!(vec, :function => chunk)
+					status[:prev]=over
 					return over
 				end
 				return 0
@@ -90,30 +100,6 @@ function highlight_lines(::Union{Val{:jl}, Val{:julia}, Val{Symbol("jl-repl")}},
 					push!(thisline, "type" => line[i:prevind(line, j)])
 					pre=i=j
 				end
-			elseif weakemp && Base.is_id_start_char(ch) # 推测是变量等
-				j=nextind(line, i)
-				while j<=sz && Base.is_id_char(line[j])
-					j=nextind(line, j)
-				end
-				str=line[i:prevind(line, j)]
-				if in(str, jl_keywords)
-					dealf()
-					push!(thisline, "keyword" => str)
-				elseif in(str, jl_specials) || (hasrepl && str=="ans")
-					dealf()
-					push!(thisline, "special" => str)
-				elseif j>sz
-					push!(thisline, "plain" => line[pre:end])
-					break
-				elseif line[j]=='('
-					dealf()
-					push!(thisline, "function" => str)
-				else
-					i=j
-					continue
-				end
-				i=j
-				pre=j
 			elseif ch=='"'
 				if weakemp # 新字符串
 					dealf()
